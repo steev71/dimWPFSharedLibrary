@@ -1,0 +1,16 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--  
+        Generic.xaml - WPF Custom Control Library Default Styles
+        Ide kerülnek a kontrollok alapértelmezett stílusai.
+    -->
+
+    <!--  Button és DataGrid stílusok betöltése  -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/Button.xaml" />
+        <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/DataGrid.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

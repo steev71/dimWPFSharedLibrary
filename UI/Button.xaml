@@ -1,0 +1,207 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="clr-namespace:Dim.WPF.Shared.Library.UI">
+
+    <!--  Alap Gomb Stílus (Primary - Purple)  -->
+    <Style x:Key="BaseButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Purple500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+
+        <!--  Név szerinti "theme" tulajdonságok  -->
+        <Setter Property="ui:ButtonAssist.CornerRadius" Value="5" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Purple600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Purple700Brush}" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border
+                        x:Name="border"
+                        Padding="{TemplateBinding Padding}"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ui:ButtonAssist.CornerRadius)}"
+                        SnapsToDevicePixels="True">
+                        <ContentPresenter
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            RecognizesAccessKey="True" />
+                    </Border>
+
+                    <ControlTemplate.Triggers>
+
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ui:ButtonAssist.HoverBackground)}" />
+                        </Trigger>
+
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ui:ButtonAssist.PressedBackground)}" />
+                        </Trigger>
+
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Background" Value="{x:Static ui:Colors.Gray400Brush}" />
+                            <Setter Property="Foreground" Value="{x:Static ui:Colors.Gray600Brush}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  Primary Button (Purple - Explicit)  -->
+    <Style
+        x:Key="PrimaryButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Purple500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Purple600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Purple700Brush}" />
+    </Style>
+
+    <!--  Secondary Button (Teal - Complementary)  -->
+    <Style
+        x:Key="SecondaryButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Teal500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Teal600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Teal700Brush}" />
+    </Style>
+
+    <!--  Tertiary Button (Indigo - Analogous)  -->
+    <Style
+        x:Key="TertiaryButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Indigo500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Indigo600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Indigo700Brush}" />
+    </Style>
+
+    <!--  Success Button (Emerald)  -->
+    <Style
+        x:Key="SuccessButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Emerald500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Emerald600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Emerald700Brush}" />
+    </Style>
+
+    <!--  Excel Export Button (Green - Vibrant)  -->
+    <Style
+        x:Key="ExcelButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Green600Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Green700Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Green800Brush}" />
+        <Setter Property="Content" Value="📊 Excel export" />
+    </Style>
+
+    <!--  PDF Export Button (Teal - Based on SecondaryButton)  -->
+    <Style
+        x:Key="PdfExportButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Red400Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Teal600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Teal700Brush}" />
+        <Setter Property="Content" Value="📄 PDF export" />
+    </Style>
+
+    <!--  Danger Button (Red)  -->
+    <Style
+        x:Key="DangerButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Red500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Red600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Red700Brush}" />
+    </Style>
+
+    <!--  Warning Button (Amber)  -->
+    <Style
+        x:Key="WarningButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Amber500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.Gray900Brush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Amber600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Amber700Brush}" />
+    </Style>
+
+    <!--  Neutral Button (Slate)  -->
+    <Style
+        x:Key="NeutralButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="{x:Static ui:Colors.Slate500Brush}" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Slate600Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Slate700Brush}" />
+    </Style>
+
+    <!--  Outline Button (Primary - Purple Border)  -->
+    <Style
+        x:Key="OutlineButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.Purple500Brush}" />
+        <Setter Property="BorderBrush" Value="{x:Static ui:Colors.Purple500Brush}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Purple50Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Purple100Brush}" />
+    </Style>
+
+    <!--  Ghost Button (Text Only)  -->
+    <Style
+        x:Key="GhostButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.Purple500Brush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Purple50Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Purple100Brush}" />
+    </Style>
+
+    <!--  Close Button (Gray/Slate Outline)  -->
+    <Style
+        x:Key="CloseButtonStyle"
+        BasedOn="{StaticResource BaseButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{x:Static ui:Colors.Slate600Brush}" />
+        <Setter Property="BorderBrush" Value="{x:Static ui:Colors.Slate400Brush}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="ui:ButtonAssist.HoverBackground" Value="{x:Static ui:Colors.Slate100Brush}" />
+        <Setter Property="ui:ButtonAssist.PressedBackground" Value="{x:Static ui:Colors.Slate200Brush}" />
+        <Setter Property="Content" Value="✖ Bezárás" />
+    </Style>
+
+    <!--  Globális (implicit) Button stílus - Primary Purple  -->
+    <Style BasedOn="{StaticResource BaseButtonStyle}" TargetType="Button" />
+
+</ResourceDictionary>
