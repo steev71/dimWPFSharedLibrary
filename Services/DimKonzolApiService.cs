@@ -26,6 +26,7 @@ public class DimKonzolApiService
     };
 
     private readonly HttpClient _httpClient;
+    private readonly HttpClient _aiHttpClient;
     private readonly int _tokenRefreshBufferSeconds;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
@@ -74,6 +75,14 @@ public class DimKonzolApiService
         };
         _httpClient.DefaultRequestHeaders.Add("X-API-Key", options.AppApiKey);
         _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+        _aiHttpClient = new HttpClient
+        {
+            BaseAddress = new Uri(options.BaseUrl),
+            Timeout = TimeSpan.FromSeconds(options.AiTimeoutSeconds)
+        };
+        _aiHttpClient.DefaultRequestHeaders.Add("X-API-Key", options.AppApiKey);
+        _aiHttpClient.DefaultRequestHeaders.Add("Accept", "application/json");
     }
 
     // ============================================================
@@ -345,7 +354,14 @@ public class DimKonzolApiService
             system_prompt = systemPrompt
         };
 
-        var response = await PostAsync<OpenAiChatData>("api/v1/openai/chat", body, authenticated: true);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/openai/chat")
+        {
+            Content = JsonContent.Create(body)
+        };
+        SetBearerHeader(request);
+
+        var httpResponse = await _aiHttpClient.SendAsync(request);
+        var response = await DeserializeResponseAsync<OpenAiChatData>(httpResponse);
 
         if (response?.Success == true && response.Data != null)
         {

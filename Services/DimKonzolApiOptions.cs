@@ -15,6 +15,9 @@ public class DimKonzolApiOptions
     /// <summary>HTTP kérések timeout értéke másodpercekben.</summary>
     public int TimeoutSeconds { get; set; } = 30;
 
+    /// <summary>AI (OpenAI proxy) kérések timeout értéke másodpercekben.</summary>
+    public int AiTimeoutSeconds { get; set; } = 120;
+
     /// <summary>
     /// Access token korai megújításának határa: ennyi másodperccel a tényleges lejárat
     /// előtt tekintjük lejártnak, hogy elkerüljük az éles lejárat körüli race condition-t.

@@ -166,23 +166,23 @@
                                         StrokeThickness="2" />
                                 </Viewbox>
                             </Border>
-                        </Grid>
-                    </Grid>
-                </Border>
+                                </Grid>
 
-                <ControlTemplate.Triggers>
+                               <!--  Hover overlay (visual-tree element so RelativeSource binding resolves correctly)  -->
+                               <Border
+                                   x:Name="HoverOverlay"
+                                   Grid.RowSpan="2"
+                                   Background="{Binding HeaderBackground, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   CornerRadius="12"
+                                   IsHitTestVisible="False"
+                                   Opacity="0" />
+                            </Grid>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
                         <Setter TargetName="Card" Property="Cursor" Value="Hand" />
-                        <Setter TargetName="Card" Property="BorderBrush">
-                            <Setter.Value>
-                                <SolidColorBrush Opacity="0.7" Color="{Binding HeaderBackground.(SolidColorBrush.Color), RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            </Setter.Value>
-                        </Setter>
-                        <Setter TargetName="Card" Property="Background">
-                            <Setter.Value>
-                                <SolidColorBrush Opacity="0.2" Color="{Binding HeaderBackground.(SolidColorBrush.Color), RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            </Setter.Value>
-                        </Setter>
+                        <Setter TargetName="HoverOverlay" Property="Opacity" Value="0.15" />
                     </Trigger>
                     <Trigger Property="IsPressed" Value="True">
                         <Setter TargetName="Card" Property="Opacity" Value="0.6" />
