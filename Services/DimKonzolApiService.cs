@@ -46,6 +46,12 @@ public class DimKonzolApiService
     public event EventHandler<ChatCompletedEventArgs>? ChatCompleted;
 
     /// <summary>
+    /// Akkor fut le, amikor a refresh token megváltozik vagy törlődik.
+    /// A hívó ezt felhasználhatja a perzisztens tároló frissítésére.
+    /// </summary>
+    public event EventHandler<AuthTokensChangedEventArgs>? AuthTokensChanged;
+
+    /// <summary>
     /// Igaz, ha az access token érvényes (bejelentkezve és nem járt le).
     /// </summary>
     public bool IsAuthenticated =>
@@ -507,6 +513,11 @@ public class DimKonzolApiService
         _accessToken = accessToken;
         _refreshToken = refreshToken;
         _accessTokenExpiry = DateTime.UtcNow.AddSeconds(expiresInSeconds - _tokenRefreshBufferSeconds);
+        AuthTokensChanged?.Invoke(this, new AuthTokensChangedEventArgs
+        {
+            RefreshToken = _refreshToken,
+            UserEmail = CurrentUser?.Email
+        });
     }
 
     private void ClearTokens()
@@ -515,5 +526,6 @@ public class DimKonzolApiService
         _refreshToken = null;
         _accessTokenExpiry = DateTime.MinValue;
         CurrentUser = null;
+        AuthTokensChanged?.Invoke(this, new AuthTokensChangedEventArgs());
     }
 }

@@ -407,6 +407,12 @@ public class ChatCompletedEventArgs : EventArgs
     public OpenAiQuotaInfo? Quota { get; init; }
 }
 
+public class AuthTokensChangedEventArgs : EventArgs
+{
+    public string? RefreshToken { get; init; }
+    public string? UserEmail { get; init; }
+}
+
 // ============================================================
 // OpenAI proxy modellek
 // ============================================================
