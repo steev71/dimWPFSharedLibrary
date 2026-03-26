@@ -20,9 +20,9 @@
         <Setter Property="CanUserSortColumns" Value="True" />
         <Setter Property="EnableRowVirtualization" Value="True" />
         <Setter Property="EnableColumnVirtualization" Value="True" />
-        <Setter Property="RowHeight" Value="25" />
-        <Setter Property="ColumnHeaderHeight" Value="30" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="RowHeight" Value="{DynamicResource DataGrid.RowHeight}" />
+        <Setter Property="ColumnHeaderHeight" Value="{DynamicResource DataGrid.ColumnHeaderHeight}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.BodySmall}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
 
         <!--  Scrollbarok  -->
@@ -54,13 +54,13 @@
         <Setter Property="Background" Value="#2C3E50" />
         <Setter Property="Foreground" Value="White" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
         <Setter Property="Padding" Value="12,0" />
         <Setter Property="BorderThickness" Value="0,0,1,0" />
         <Setter Property="BorderBrush" Value="#34495E" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="Height" Value="30" />
+        <Setter Property="Height" Value="{DynamicResource DataGrid.ColumnHeaderHeight}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DataGridColumnHeader">

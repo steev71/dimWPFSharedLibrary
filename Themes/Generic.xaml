@@ -9,7 +9,11 @@
 
     <!--  Button és DataGrid stílusok betöltése  -->
     <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/Typography.xaml" />
+        <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/Density.xaml" />
         <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/Button.xaml" />
+        <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/FormStyles.xaml" />
+        <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/CardStyles.xaml" />
         <ResourceDictionary Source="/Dim.WPF.Shared.Library;component/UI/DataGrid.xaml" />
     </ResourceDictionary.MergedDictionaries>
 

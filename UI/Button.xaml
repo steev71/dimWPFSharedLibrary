@@ -9,8 +9,8 @@
         <Setter Property="Foreground" Value="{x:Static ui:Colors.TextOnDarkBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="12,8" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="{DynamicResource Padding.Button}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
