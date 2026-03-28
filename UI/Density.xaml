@@ -1,30 +1,51 @@
-<ResourceDictionary
+﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
-    <!-- Spacing -->
+    <!--  Spacing  -->
     <sys:Double x:Key="Spacing.XSmall">2</sys:Double>
     <sys:Double x:Key="Spacing.Small">4</sys:Double>
     <sys:Double x:Key="Spacing.Medium">8</sys:Double>
     <sys:Double x:Key="Spacing.Large">12</sys:Double>
     <sys:Double x:Key="Spacing.XLarge">16</sys:Double>
 
-    <!-- Common paddings and margins -->
+    <!--  Common paddings and margins  -->
     <Thickness x:Key="Padding.Control">8,6</Thickness>
     <Thickness x:Key="Padding.Button">12,8</Thickness>
+    <Thickness x:Key="Padding.ButtonCompact">12,0</Thickness>
     <Thickness x:Key="Padding.Card">16</Thickness>
+    <Thickness x:Key="Padding.CardCompact">12</Thickness>
+    <Thickness x:Key="Padding.HeaderLarge">24,20</Thickness>
+    <Thickness x:Key="Padding.InfoChip">8,4</Thickness>
+    <Thickness x:Key="Padding.PanelCompact">10,8</Thickness>
     <Thickness x:Key="Margin.CardBottom">0,0,0,16</Thickness>
+    <Thickness x:Key="Margin.BottomSmall">0,0,0,4</Thickness>
+    <Thickness x:Key="Margin.BottomLarge">0,0,0,12</Thickness>
+    <Thickness x:Key="Margin.ContentTop">12,12,12,0</Thickness>
+    <Thickness x:Key="Margin.LeftSmall">4,0,0,0</Thickness>
+    <Thickness x:Key="Margin.LeftMedium">6,0,0,0</Thickness>
+    <Thickness x:Key="Margin.LeftLarge">10,0,0,0</Thickness>
+    <Thickness x:Key="Margin.RightSmall">0,0,4,0</Thickness>
+    <Thickness x:Key="Margin.RightMedium">0,0,6,0</Thickness>
+    <Thickness x:Key="Margin.RightLarge">0,0,10,0</Thickness>
+    <Thickness x:Key="Margin.TopSmall">0,6,0,0</Thickness>
+    <Thickness x:Key="Margin.TopXSmall">0,4,0,0</Thickness>
+    <Thickness x:Key="Margin.TopMedium">0,8,0,0</Thickness>
+    <Thickness x:Key="Margin.TopLarge">0,12,0,0</Thickness>
+    <Thickness x:Key="Margin.BottomMedium">0,0,0,8</Thickness>
+    <Thickness x:Key="Margin.TopXLarge">0,16,0,0</Thickness>
+    <Thickness x:Key="Margin.RightXLarge">0,0,12,0</Thickness>
     <Thickness x:Key="Margin.SectionTitle">0,0,0,12</Thickness>
     <Thickness x:Key="Margin.SectionDivider">0,0,0,16</Thickness>
     <Thickness x:Key="Margin.ValidationError">0,2,0,0</Thickness>
 
-    <!-- Control sizing -->
+    <!--  Control sizing  -->
     <sys:Double x:Key="ControlHeight.Compact">30</sys:Double>
     <sys:Double x:Key="ControlHeight.Normal">36</sys:Double>
     <sys:Double x:Key="ControlHeight.Large">40</sys:Double>
 
-    <!-- DataGrid sizing -->
+    <!--  DataGrid sizing  -->
     <sys:Double x:Key="DataGrid.RowHeight">25</sys:Double>
     <sys:Double x:Key="DataGrid.ColumnHeaderHeight">30</sys:Double>
 
