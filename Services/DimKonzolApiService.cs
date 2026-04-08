@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 
 namespace Dim.WPF.Shared.Library.Services;
@@ -20,6 +21,14 @@ namespace Dim.WPF.Shared.Library.Services;
 /// </summary>
 public class DimKonzolApiService
 {
+    private enum ApiAuthenticationMode
+    {
+        None,
+        Bearer,
+        DeviceToken,
+        TenantContext
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -32,6 +41,7 @@ public class DimKonzolApiService
 
     private string? _accessToken;
     private string? _refreshToken;
+    private string? _deviceToken;
     private DateTime _accessTokenExpiry = DateTime.MinValue;
 
     // ============================================================
@@ -61,6 +71,11 @@ public class DimKonzolApiService
     /// Igaz, ha van tárolt refresh token (auto-refresh lehetséges).
     /// </summary>
     public bool HasRefreshToken => !string.IsNullOrEmpty(_refreshToken);
+
+    /// <summary>
+    /// Igaz, ha van tárolt device token (seat alapú desktop authentikáció).
+    /// </summary>
+    public bool HasDeviceToken => !string.IsNullOrEmpty(_deviceToken);
 
     /// <summary>
     /// Az aktuálisan bejelentkezett felhasználó adatai (login után töltődik fel).
@@ -102,6 +117,11 @@ public class DimKonzolApiService
     public string? GetRefreshToken() => _refreshToken;
 
     /// <summary>
+    /// Visszaadja a jelenlegi device tokent, hogy a hívó el tudja menteni.
+    /// </summary>
+    public string? GetDeviceToken() => _deviceToken;
+
+    /// <summary>
     /// Refresh token visszatöltése (pl. UserSettings-ből induláskor).
     /// Az access token auto-refresh az első védett híváskor indul meg.
     /// </summary>
@@ -109,6 +129,14 @@ public class DimKonzolApiService
     {
         _refreshToken = refreshToken;
         CurrentUser = user;
+    }
+
+    /// <summary>
+    /// Device token visszatöltése (seat alapú login nélküli desktop authentikációhoz).
+    /// </summary>
+    public void LoadDeviceToken(string deviceToken)
+    {
+        _deviceToken = deviceToken;
     }
 
     // ============================================================
@@ -198,6 +226,37 @@ public class DimKonzolApiService
         return response;
     }
 
+    /// <summary>
+    /// Seat aktiváló kód beváltása és device token igénylése.
+    /// Sikeres hívás után a device token automatikusan eltárolódik a service-ben.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<DeviceActivationClaimData>?> ClaimDeviceActivationAsync(
+        string activationCode, string hardwareId, string? deviceName = null)
+    {
+        var body = new
+        {
+            activation_code = activationCode,
+            hardware_id = hardwareId,
+            device_name = deviceName
+        };
+
+        var response = await PostAsync<DeviceActivationClaimData>("api/v1/activation/claim", body);
+        if (response?.Success == true && !string.IsNullOrWhiteSpace(response.Data?.DeviceToken))
+            _deviceToken = response.Data.DeviceToken;
+
+        return response;
+    }
+
+    /// <summary>
+    /// A korábban kiadott device token ellenőrzése és a seat/licenc állapot lekérdezése.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<DeviceValidationData>?> ValidateDeviceAsync(string hardwareId)
+    {
+        await EnsureDeviceTokenAsync();
+        var body = new { hardware_id = hardwareId };
+        return await PostAsync<DeviceValidationData>("api/v1/activation/validate-device", body, ApiAuthenticationMode.DeviceToken);
+    }
+
     // ============================================================
     // License API
     // ============================================================
@@ -230,9 +289,9 @@ public class DimKonzolApiService
     public async Task<DimKonzolApiResponse<LicenseValidateData>?> ValidateLicenseAsync(
         string licenseKey, string hardwareId)
     {
-        await EnsureValidTokenAsync();
+        await EnsureTenantContextAsync();
         var body = new { license_key = licenseKey, hardware_id = hardwareId };
-        return await PostAsync<LicenseValidateData>("api/v1/license/validate", body, authenticated: true);
+        return await PostAsync<LicenseValidateData>("api/v1/license/validate", body, ApiAuthenticationMode.Bearer);
     }
 
     /// <summary>
@@ -245,7 +304,7 @@ public class DimKonzolApiService
     {
         await EnsureValidTokenAsync();
         var body = new { license_key = licenseKey, hardware_id = hardwareId, device_name = deviceName };
-        return await PostAsync<LicenseActivateData>("api/v1/license/activate", body, authenticated: true);
+        return await PostAsync<LicenseActivateData>("api/v1/license/activate", body, ApiAuthenticationMode.Bearer);
     }
 
     /// <summary>
@@ -258,7 +317,7 @@ public class DimKonzolApiService
     {
         await EnsureValidTokenAsync();
         var body = new { license_key = licenseKey, hardware_id = hardwareId };
-        return await PostAsync<LicenseDeactivateData>("api/v1/license/deactivate", body, authenticated: true);
+        return await PostAsync<LicenseDeactivateData>("api/v1/license/deactivate", body, ApiAuthenticationMode.Bearer);
     }
 
     /// <summary>
@@ -269,11 +328,11 @@ public class DimKonzolApiService
     {
         await EnsureValidTokenAsync();
         return await GetAsync<DevicesData>(
-            $"api/v1/license/{Uri.EscapeDataString(licenseKey)}/devices", authenticated: true);
+            $"api/v1/license/{Uri.EscapeDataString(licenseKey)}/devices", ApiAuthenticationMode.Bearer);
     }
 
     // ============================================================
-    // Cégjelző Proxy (JWT szükséges)
+    // Cégjelző Proxy (JWT vagy X-Device-Token)
     // ============================================================
 
     /// <summary>
@@ -298,12 +357,12 @@ public class DimKonzolApiService
             ("only-active", onlyActive.HasValue ? onlyActive.Value.ToString().ToLower() : null));
 
         return await GetAsync<CegjelzoProxyAutocompleteData>(
-            $"api/v1/cegjelzo/autocomplete{query}", authenticated: true);
+            $"api/v1/cegjelzo/autocomplete{query}", ApiAuthenticationMode.TenantContext);
     }
 
     /// <summary>
     /// Részletes cégkeresés (céginformáció + pénzügyi adatok) a DimKonzol proxyn keresztül.
-    /// Kvóta: 2 / cache miss, 0 / cache hit.
+    /// Kvóta: 1 / cache miss, 0 / cache hit.
     /// </summary>
     /// <param name="value">Keresési kifejezés – adószám, cégnév (min. 3 karakter)</param>
     /// <param name="forceRefresh">true = cache megkerülése, friss adat lekérése</param>
@@ -314,7 +373,7 @@ public class DimKonzolApiService
         int? page = null,
         bool forceRefresh = false)
     {
-        await EnsureValidTokenAsync();
+        await EnsureTenantContextAsync();
 
         var query = BuildQueryString(
             ("value", value),
@@ -324,7 +383,7 @@ public class DimKonzolApiService
             ("force_refresh", forceRefresh ? "1" : null));
 
         return await GetAsync<CegjelzoProxySearchData>(
-            $"api/v1/cegjelzo/search{query}", authenticated: true);
+            $"api/v1/cegjelzo/search{query}", ApiAuthenticationMode.TenantContext);
     }
 
     /// <summary>
@@ -332,51 +391,288 @@ public class DimKonzolApiService
     /// </summary>
     public async Task<DimKonzolApiResponse<CegjelzoUsageData>?> GetCegjelzoUsageAsync()
     {
-        await EnsureValidTokenAsync();
-        return await GetAsync<CegjelzoUsageData>("api/v1/cegjelzo/usage", authenticated: true);
+        await EnsureTenantContextAsync();
+        return await GetAsync<CegjelzoUsageData>("api/v1/cegjelzo/usage", ApiAuthenticationMode.TenantContext);
     }
 
     // ============================================================
-    // OpenAI Proxy (JWT szükséges)
+    // OpenAI Proxy (JWT vagy X-Device-Token, kivéve ahol külön jelezve)
     // ============================================================
 
     /// <summary>
     /// Chat üzenet küldése az OpenAI felé a DimKonzol proxyn keresztül.
-    /// A modell automatikusan a felhasználó beállítása alapján kerül kiválasztásra.
+    /// A modell automatikusan a felhasználó beállítása alapján kerül kiválasztásra,
+    /// de kérésenként felülbírálható.
     /// <b>Csak aktív OpenAI előfizetéssel használható.</b>
     /// A válasz tartalmazza a felhasznált tokenek részleteit (<c>data.usage</c>).
     /// </summary>
     /// <param name="messages">Üzenetek listája (role: "user" | "assistant")</param>
     /// <param name="systemPrompt">Opcionális rendszer utasítás</param>
+    /// <param name="model">Opcionális modell felülírás csak az adott kérésre</param>
     public async Task<DimKonzolApiResponse<OpenAiChatData>?> ChatAsync(
         IEnumerable<DimKonzolChatMessage> messages,
-        string? systemPrompt = null)
+        string? systemPrompt = null,
+        string? model = null)
     {
-        await EnsureValidTokenAsync();
+        await EnsureTenantContextAsync();
 
         var body = new
         {
             messages,
-            system_prompt = systemPrompt
+            system_prompt = systemPrompt,
+            model
         };
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/openai/chat")
         {
             Content = JsonContent.Create(body)
         };
-        SetBearerHeader(request);
+        SetAuthenticationHeader(request, ApiAuthenticationMode.TenantContext);
 
         var httpResponse = await _aiHttpClient.SendAsync(request);
         var response = await DeserializeResponseAsync<OpenAiChatData>(httpResponse);
 
-        if (response?.Success == true && response.Data != null)
+        RaiseChatCompleted(response?.Data?.Usage, response?.Data?.Quota);
+
+        return response;
+    }
+
+    /// <summary>
+    /// Chat üzenet küldése az OpenAI felé fájlcsatolmányokkal a DimKonzol proxyn keresztül.
+    /// A fájlok multipart/form-data formában kerülnek továbbításra.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<OpenAiChatWithFilesData>?> ChatWithFilesAsync(
+        IEnumerable<DimKonzolChatMessage> messages,
+        IEnumerable<DimKonzolFileAttachment> files,
+        string? systemPrompt = null,
+        string? model = null)
+    {
+        await EnsureTenantContextAsync();
+
+        ArgumentNullException.ThrowIfNull(messages);
+        ArgumentNullException.ThrowIfNull(files);
+
+        var attachmentList = files.Where(file => file is not null).ToList();
+        if (attachmentList.Count == 0)
+            throw new ArgumentException("Legalább egy fájl csatolása kötelező.", nameof(files));
+
+        using var multipart = new MultipartFormDataContent();
+        multipart.Add(new StringContent(JsonSerializer.Serialize(messages, JsonOptions)), "messages");
+
+        if (!string.IsNullOrWhiteSpace(systemPrompt))
+            multipart.Add(new StringContent(systemPrompt), "system_prompt");
+
+        if (!string.IsNullOrWhiteSpace(model))
+            multipart.Add(new StringContent(model), "model");
+
+        foreach (var file in attachmentList)
         {
-            ChatCompleted?.Invoke(this, new ChatCompletedEventArgs
-            {
-                Usage = response.Data.Usage,
-                Quota = response.Data.Quota
-            });
+            if (string.IsNullOrWhiteSpace(file.FileName))
+                throw new ArgumentException("A csatolt fájl neve kötelező.", nameof(files));
+
+            var content = new ByteArrayContent(file.Content ?? []);
+            if (!string.IsNullOrWhiteSpace(file.MediaType))
+                content.Headers.ContentType = MediaTypeHeaderValue.Parse(file.MediaType);
+
+            multipart.Add(content, "files[]", file.FileName);
         }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/openai/chat-with-files")
+        {
+            Content = multipart
+        };
+        SetAuthenticationHeader(request, ApiAuthenticationMode.TenantContext);
+
+        var httpResponse = await _aiHttpClient.SendAsync(request);
+        var response = await DeserializeResponseAsync<OpenAiChatWithFilesData>(httpResponse);
+
+        RaiseChatCompleted(response?.Data?.Usage, response?.Data?.Quota);
+
+        return response;
+    }
+
+    /// <summary>
+    /// LiveCharts-kompatibilis grafikon specifikáció generálása OpenAI Structured Outputs használatával.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<OpenAiGenerateChartSpecData>?> GenerateChartSpecAsync(
+        string prompt,
+        object? data = null,
+        string? chartTypeHint = null,
+        string? systemPrompt = null,
+        string? model = null)
+    {
+        await EnsureTenantContextAsync();
+
+        var body = new
+        {
+            prompt,
+            data,
+            chart_type_hint = chartTypeHint,
+            system_prompt = systemPrompt,
+            model
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/openai/generate-chart-spec")
+        {
+            Content = JsonContent.Create(body)
+        };
+        SetAuthenticationHeader(request, ApiAuthenticationMode.TenantContext);
+
+        var httpResponse = await _aiHttpClient.SendAsync(request);
+        var response = await DeserializeResponseAsync<OpenAiGenerateChartSpecData>(httpResponse);
+
+        RaiseChatCompleted(response?.Data?.Usage, response?.Data?.Quota);
+
+        return response;
+    }
+
+    /// <summary>
+    /// Egyetlen számlafájl strukturált feldolgozása fix JSON sémára.
+    /// Opcionálisan OCR segédszöveg és kérésenkénti modell felülírás is küldhető.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<OpenAiProcessInvoiceData>?> ProcessInvoiceAsync(
+        DimKonzolFileAttachment file,
+        string? ocrText = null,
+        string? model = null)
+    {
+        await EnsureTenantContextAsync();
+
+        ArgumentNullException.ThrowIfNull(file);
+        if (string.IsNullOrWhiteSpace(file.FileName))
+            throw new ArgumentException("A számlafájl neve kötelező.", nameof(file));
+
+        using var multipart = new MultipartFormDataContent();
+
+        var fileContent = new ByteArrayContent(file.Content ?? []);
+        if (!string.IsNullOrWhiteSpace(file.MediaType))
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.MediaType);
+
+        multipart.Add(fileContent, "file", file.FileName);
+
+        if (!string.IsNullOrWhiteSpace(ocrText))
+            multipart.Add(new StringContent(ocrText), "ocr_text");
+
+        if (!string.IsNullOrWhiteSpace(model))
+            multipart.Add(new StringContent(model), "model");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/openai/process-invoice")
+        {
+            Content = multipart
+        };
+        SetAuthenticationHeader(request, ApiAuthenticationMode.TenantContext);
+
+        var httpResponse = await _aiHttpClient.SendAsync(request);
+        var response = await DeserializeResponseAsync<OpenAiProcessInvoiceData>(httpResponse);
+
+        RaiseChatCompleted(response?.Data?.Usage, response?.Data?.Quota);
+
+        return response;
+    }
+
+    /// <summary>
+    /// Egyetlen dokumentum könyvelési osztályozása fix JSON sémára.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<OpenAiClassifyAccountingDocumentData>?> ClassifyAccountingDocumentAsync(
+        DimKonzolFileAttachment file,
+        string? ocrText = null,
+        string? context = null,
+        string? ownCompanyName = null,
+        string? ownCompanyTaxNumber = null,
+        string? ownCompanyRegistrationNumber = null,
+        string? model = null)
+    {
+        await EnsureTenantContextAsync();
+
+        ArgumentNullException.ThrowIfNull(file);
+        if (string.IsNullOrWhiteSpace(file.FileName))
+            throw new ArgumentException("A dokumentumfájl neve kötelező.", nameof(file));
+
+        using var multipart = new MultipartFormDataContent();
+
+        var fileContent = new ByteArrayContent(file.Content ?? []);
+        if (!string.IsNullOrWhiteSpace(file.MediaType))
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.MediaType);
+
+        multipart.Add(fileContent, "file", file.FileName);
+
+        if (!string.IsNullOrWhiteSpace(ocrText))
+            multipart.Add(new StringContent(ocrText), "ocr_text");
+
+        if (!string.IsNullOrWhiteSpace(context))
+            multipart.Add(new StringContent(context), "context");
+
+        if (!string.IsNullOrWhiteSpace(ownCompanyName))
+            multipart.Add(new StringContent(ownCompanyName), "own_company_name");
+
+        if (!string.IsNullOrWhiteSpace(ownCompanyTaxNumber))
+            multipart.Add(new StringContent(ownCompanyTaxNumber), "own_company_tax_number");
+
+        if (!string.IsNullOrWhiteSpace(ownCompanyRegistrationNumber))
+            multipart.Add(new StringContent(ownCompanyRegistrationNumber), "own_company_registration_number");
+
+        if (!string.IsNullOrWhiteSpace(model))
+            multipart.Add(new StringContent(model), "model");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/openai/classify-accounting-document")
+        {
+            Content = multipart
+        };
+        SetAuthenticationHeader(request, ApiAuthenticationMode.TenantContext);
+
+        var httpResponse = await _aiHttpClient.SendAsync(request);
+        var response = await DeserializeResponseAsync<OpenAiClassifyAccountingDocumentData>(httpResponse);
+
+        RaiseChatCompleted(response?.Data?.Usage, response?.Data?.Quota);
+
+        return response;
+    }
+
+    /// <summary>
+    /// Bankszámlakivonat strukturált feldolgozása fix JSON sémára.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<OpenAiProcessBankStatementData>?> ProcessBankStatementAsync(
+        DimKonzolFileAttachment file,
+        string? ocrText = null,
+        string? ownCompanyName = null,
+        string? ownCompanyTaxNumber = null,
+        string? model = null)
+    {
+        await EnsureTenantContextAsync();
+
+        ArgumentNullException.ThrowIfNull(file);
+        if (string.IsNullOrWhiteSpace(file.FileName))
+            throw new ArgumentException("A bankszámlakivonat fájlneve kötelező.", nameof(file));
+
+        using var multipart = new MultipartFormDataContent();
+
+        var fileContent = new ByteArrayContent(file.Content ?? []);
+        if (!string.IsNullOrWhiteSpace(file.MediaType))
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.MediaType);
+
+        multipart.Add(fileContent, "file", file.FileName);
+
+        if (!string.IsNullOrWhiteSpace(ocrText))
+            multipart.Add(new StringContent(ocrText), "ocr_text");
+
+        if (!string.IsNullOrWhiteSpace(ownCompanyName))
+            multipart.Add(new StringContent(ownCompanyName), "own_company_name");
+
+        if (!string.IsNullOrWhiteSpace(ownCompanyTaxNumber))
+            multipart.Add(new StringContent(ownCompanyTaxNumber), "own_company_tax_number");
+
+        if (!string.IsNullOrWhiteSpace(model))
+            multipart.Add(new StringContent(model), "model");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/openai/process-bank-statement")
+        {
+            Content = multipart
+        };
+        SetAuthenticationHeader(request, ApiAuthenticationMode.TenantContext);
+
+        var httpResponse = await _aiHttpClient.SendAsync(request);
+        var response = await DeserializeResponseAsync<OpenAiProcessBankStatementData>(httpResponse);
+
+        RaiseChatCompleted(response?.Data?.Usage, response?.Data?.Quota);
 
         return response;
     }
@@ -386,8 +682,8 @@ public class DimKonzolApiService
     /// </summary>
     public async Task<DimKonzolApiResponse<OpenAiSettingsData>?> GetOpenAiSettingsAsync()
     {
-        await EnsureValidTokenAsync();
-        return await GetAsync<OpenAiSettingsData>("api/v1/openai/settings", authenticated: true);
+        await EnsureTenantContextAsync();
+        return await GetAsync<OpenAiSettingsData>("api/v1/openai/settings", ApiAuthenticationMode.TenantContext);
     }
 
     /// <summary>
@@ -397,7 +693,7 @@ public class DimKonzolApiService
     {
         await EnsureValidTokenAsync();
         var body = new { model };
-        return await PutAsync<OpenAiSettingsData>("api/v1/openai/settings", body, authenticated: true);
+        return await PutAsync<OpenAiSettingsData>("api/v1/openai/settings", body, ApiAuthenticationMode.Bearer);
     }
 
     /// <summary>
@@ -407,8 +703,8 @@ public class DimKonzolApiService
     /// </summary>
     public async Task<DimKonzolApiResponse<OpenAiUsageData>?> GetOpenAiUsageAsync()
     {
-        await EnsureValidTokenAsync();
-        return await GetAsync<OpenAiUsageData>("api/v1/openai/usage", authenticated: true);
+        await EnsureTenantContextAsync();
+        return await GetAsync<OpenAiUsageData>("api/v1/openai/usage", ApiAuthenticationMode.TenantContext);
     }
 
     // ============================================================
@@ -443,47 +739,100 @@ public class DimKonzolApiService
         }
     }
 
+    private async Task EnsureTenantContextAsync()
+    {
+        if (HasDeviceToken)
+            return;
+
+        await EnsureValidTokenAsync();
+    }
+
+    private Task EnsureDeviceTokenAsync()
+    {
+        if (HasDeviceToken)
+            return Task.CompletedTask;
+
+        throw new InvalidOperationException(
+            "Nincs device token betöltve. Seat alapú hívások előtt aktiválni kell az eszközt vagy vissza kell tölteni a tárolt device tokent.");
+    }
+
     private async Task<DimKonzolApiResponse<T>?> GetAsync<T>(
-        string url, bool authenticated = false)
+        string url, ApiAuthenticationMode authenticationMode = ApiAuthenticationMode.None)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        if (authenticated) SetBearerHeader(request);
+        SetAuthenticationHeader(request, authenticationMode);
 
         var httpResponse = await _httpClient.SendAsync(request);
         return await DeserializeResponseAsync<T>(httpResponse);
     }
 
     private async Task<DimKonzolApiResponse<T>?> PostAsync<T>(
-        string url, object body, bool authenticated = false)
+        string url, object body, ApiAuthenticationMode authenticationMode = ApiAuthenticationMode.None)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = JsonContent.Create(body)
         };
-        if (authenticated) SetBearerHeader(request);
+        SetAuthenticationHeader(request, authenticationMode);
 
         var httpResponse = await _httpClient.SendAsync(request);
         return await DeserializeResponseAsync<T>(httpResponse);
     }
 
     private async Task<DimKonzolApiResponse<T>?> PutAsync<T>(
-        string url, object body, bool authenticated = false)
+        string url, object body, ApiAuthenticationMode authenticationMode = ApiAuthenticationMode.None)
     {
         using var request = new HttpRequestMessage(HttpMethod.Put, url)
         {
             Content = JsonContent.Create(body)
         };
-        if (authenticated) SetBearerHeader(request);
+        SetAuthenticationHeader(request, authenticationMode);
 
         var httpResponse = await _httpClient.SendAsync(request);
         return await DeserializeResponseAsync<T>(httpResponse);
     }
 
-    private void SetBearerHeader(HttpRequestMessage request)
+    private void SetAuthenticationHeader(HttpRequestMessage request, ApiAuthenticationMode authenticationMode)
     {
-        if (!string.IsNullOrEmpty(_accessToken))
-            request.Headers.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
+        switch (authenticationMode)
+        {
+            case ApiAuthenticationMode.None:
+                return;
+
+            case ApiAuthenticationMode.Bearer:
+                if (string.IsNullOrEmpty(_accessToken))
+                    throw new InvalidOperationException("Nincs érvényes access token a kéréshez.");
+
+                request.Headers.Authorization =
+                    new AuthenticationHeaderValue("Bearer", _accessToken);
+                return;
+
+            case ApiAuthenticationMode.DeviceToken:
+                if (string.IsNullOrEmpty(_deviceToken))
+                    throw new InvalidOperationException("Nincs device token a kéréshez.");
+
+                request.Headers.Add("X-Device-Token", _deviceToken);
+                return;
+
+            case ApiAuthenticationMode.TenantContext:
+                if (!string.IsNullOrEmpty(_accessToken))
+                {
+                    request.Headers.Authorization =
+                        new AuthenticationHeaderValue("Bearer", _accessToken);
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(_deviceToken))
+                {
+                    request.Headers.Add("X-Device-Token", _deviceToken);
+                    return;
+                }
+
+                throw new InvalidOperationException("Nincs elérhető tenant kontextus a kéréshez.");
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(authenticationMode), authenticationMode, null);
+        }
     }
 
     private static async Task<DimKonzolApiResponse<T>?> DeserializeResponseAsync<T>(
@@ -506,6 +855,18 @@ public class DimKonzolApiService
 
         var qs = string.Join("&", parts);
         return qs.Length > 0 ? "?" + qs : string.Empty;
+    }
+
+    private void RaiseChatCompleted(OpenAiUsageInfo? usage, OpenAiQuotaInfo? quota)
+    {
+        if (usage is null && quota is null)
+            return;
+
+        ChatCompleted?.Invoke(this, new ChatCompletedEventArgs
+        {
+            Usage = usage,
+            Quota = quota
+        });
     }
 
     private void StoreTokens(string accessToken, string refreshToken, int expiresInSeconds)
