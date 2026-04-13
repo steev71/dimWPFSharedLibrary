@@ -40,6 +40,13 @@ namespace Dim.WPF.Shared.Library.UI
                 typeof(LottieControl),
                 new PropertyMetadata(-1));
 
+        public static readonly DependencyProperty RepeatDelayMillisecondsProperty =
+            DependencyProperty.Register(
+                nameof(RepeatDelayMilliseconds),
+                typeof(int),
+                typeof(LottieControl),
+                new PropertyMetadata(0));
+
         public string? Source
         {
             get => (string?)GetValue(SourceProperty);
@@ -56,6 +63,12 @@ namespace Dim.WPF.Shared.Library.UI
         {
             get => (int)GetValue(RepeatCountProperty);
             set => SetValue(RepeatCountProperty, value);
+        }
+
+        public int RepeatDelayMilliseconds
+        {
+            get => (int)GetValue(RepeatDelayMillisecondsProperty);
+            set => SetValue(RepeatDelayMillisecondsProperty, value);
         }
 
         public LottieControl()
@@ -109,7 +122,17 @@ namespace Dim.WPF.Shared.Library.UI
             try
             {
                 string jsonPath = Source;
-                if (!Path.IsPathRooted(jsonPath))
+                if (Uri.TryCreate(jsonPath, UriKind.Absolute, out var absoluteUri) && absoluteUri.Scheme == "pack")
+                {
+                    var streamInfo = Application.GetResourceStream(absoluteUri);
+                    if (streamInfo != null)
+                    {
+                        using var reader = new StreamReader(streamInfo.Stream);
+                        var json = reader.ReadToEnd();
+                        _animation = Animation.Parse(json);
+                    }
+                }
+                else if (!Path.IsPathRooted(jsonPath))
                 {
                     // Relatív útvonal kezelése
                     var uri = new Uri($"pack://application:,,,/{jsonPath}");
@@ -188,7 +211,15 @@ namespace Dim.WPF.Shared.Library.UI
                 // Számítsuk ki az animáció progresszióját
                 var elapsed = (DateTime.Now - _startTime).TotalSeconds;
                 var duration = _animation.Duration.TotalSeconds;
-                var progress = (elapsed % duration) / duration;
+                if (duration <= 0)
+                    return;
+
+                var repeatDelaySeconds = Math.Max(0, RepeatDelayMilliseconds) / 1000.0;
+                var cycleDuration = duration + repeatDelaySeconds;
+                var cyclePosition = cycleDuration > 0 ? elapsed % cycleDuration : 0;
+                var progress = cyclePosition >= duration
+                    ? 0
+                    : cyclePosition / duration;
 
                 // Rajzoljuk ki az animációt
                 _animation.SeekFrameTime(progress * _animation.Duration.TotalSeconds);
