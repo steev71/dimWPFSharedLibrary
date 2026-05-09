@@ -396,6 +396,194 @@ public class DimKonzolApiService
     }
 
     // ============================================================
+    // Support API (JWT vagy X-Device-Token)
+    // ============================================================
+
+    /// <summary>
+    /// Tenant szintű support elemek listázása.
+    /// Opcionálisan szűrhető típus, státusz és keresőszöveg alapján.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<JsonElement>?> GetSupportItemsAsync(
+        string? type = null,
+        string? status = null,
+        string? search = null)
+    {
+        await EnsureTenantContextAsync();
+
+        var query = BuildQueryString(
+            ("type", type),
+            ("status", status),
+            ("search", search));
+
+        return await GetAsync<JsonElement>($"api/v1/support/items{query}", ApiAuthenticationMode.TenantContext);
+    }
+
+    /// <summary>
+    /// Új support elem (hibajegy vagy ötlet) létrehozása.
+    /// Csatolmányok nélkül JSON-ként, csatolmányokkal multipart/form-data formában küld.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<JsonElement>?> CreateSupportItemAsync(
+        DimKonzolSupportItemCreateRequest request,
+        IEnumerable<DimKonzolFileAttachment>? attachments = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureTenantContextAsync();
+
+        var attachmentList = attachments?.Where(a => a is not null).ToList() ?? [];
+
+        if (attachmentList.Count == 0)
+        {
+            return await PostAsync<JsonElement>("api/v1/support/items", request, ApiAuthenticationMode.TenantContext);
+        }
+
+        using var multipart = new MultipartFormDataContent();
+        multipart.Add(new StringContent(request.Type), "type");
+        multipart.Add(new StringContent(request.Subject), "subject");
+        multipart.Add(new StringContent(request.Description), "description");
+
+        if (!string.IsNullOrWhiteSpace(request.Priority))
+            multipart.Add(new StringContent(request.Priority), "priority");
+
+        if (request.IsPublic.HasValue)
+            multipart.Add(new StringContent(request.IsPublic.Value.ToString().ToLowerInvariant()), "is_public");
+
+        if (request.AllowPublicComments.HasValue)
+            multipart.Add(new StringContent(request.AllowPublicComments.Value.ToString().ToLowerInvariant()), "allow_public_comments");
+
+        if (!string.IsNullOrWhiteSpace(request.ContactName))
+            multipart.Add(new StringContent(request.ContactName), "contact_name");
+
+        if (!string.IsNullOrWhiteSpace(request.ContactEmail))
+            multipart.Add(new StringContent(request.ContactEmail), "contact_email");
+
+        if (!string.IsNullOrWhiteSpace(request.ClientVersion))
+            multipart.Add(new StringContent(request.ClientVersion), "client_version");
+
+        if (!string.IsNullOrWhiteSpace(request.OperatingSystem))
+            multipart.Add(new StringContent(request.OperatingSystem), "operating_system");
+
+        if (request.Metadata is not null)
+            multipart.Add(new StringContent(JsonSerializer.Serialize(request.Metadata)), "metadata");
+
+        foreach (var file in attachmentList)
+        {
+            if (string.IsNullOrWhiteSpace(file.FileName))
+                throw new ArgumentException("A csatolt fájl neve kötelező.", nameof(attachments));
+
+            var content = new ByteArrayContent(file.Content ?? []);
+            if (!string.IsNullOrWhiteSpace(file.MediaType))
+                content.Headers.ContentType = MediaTypeHeaderValue.Parse(file.MediaType);
+
+            multipart.Add(content, "attachments[]", file.FileName);
+        }
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/v1/support/items")
+        {
+            Content = multipart
+        };
+        SetAuthenticationHeader(httpRequest, ApiAuthenticationMode.TenantContext);
+
+        var httpResponse = await _httpClient.SendAsync(httpRequest);
+        return await DeserializeResponseAsync<JsonElement>(httpResponse);
+    }
+
+    /// <summary>
+    /// Egy support elem részleteinek lekérése azonosító alapján.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<JsonElement>?> GetSupportItemAsync(int id)
+    {
+        await EnsureTenantContextAsync();
+        return await GetAsync<JsonElement>($"api/v1/support/items/{id}", ApiAuthenticationMode.TenantContext);
+    }
+
+    /// <summary>
+    /// Új üzenet hozzáadása egy support elemhez.
+    /// Csatolmányok nélkül JSON-ként, csatolmányokkal multipart/form-data formában küld.
+    /// </summary>
+    public async Task<DimKonzolApiResponse<JsonElement>?> CreateSupportMessageAsync(
+        int itemId,
+        DimKonzolSupportMessageCreateRequest request,
+        IEnumerable<DimKonzolFileAttachment>? attachments = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnsureTenantContextAsync();
+
+        var attachmentList = attachments?.Where(a => a is not null).ToList() ?? [];
+        if (string.IsNullOrWhiteSpace(request.Message) && attachmentList.Count == 0)
+            throw new ArgumentException("Üres üzenet csak csatolmányokkal együtt küldhető.", nameof(request));
+
+        var url = $"api/v1/support/items/{itemId}/messages";
+
+        if (attachmentList.Count == 0)
+            return await PostAsync<JsonElement>(url, request, ApiAuthenticationMode.TenantContext);
+
+        using var multipart = new MultipartFormDataContent();
+
+        if (!string.IsNullOrWhiteSpace(request.Message))
+            multipart.Add(new StringContent(request.Message), "message");
+
+        if (request.Metadata is not null)
+            multipart.Add(new StringContent(JsonSerializer.Serialize(request.Metadata)), "metadata");
+
+        foreach (var file in attachmentList)
+        {
+            if (string.IsNullOrWhiteSpace(file.FileName))
+                throw new ArgumentException("A csatolt fájl neve kötelező.", nameof(attachments));
+
+            var content = new ByteArrayContent(file.Content ?? []);
+            if (!string.IsNullOrWhiteSpace(file.MediaType))
+                content.Headers.ContentType = MediaTypeHeaderValue.Parse(file.MediaType);
+
+            multipart.Add(content, "attachments[]", file.FileName);
+        }
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = multipart
+        };
+        SetAuthenticationHeader(httpRequest, ApiAuthenticationMode.TenantContext);
+
+        var httpResponse = await _httpClient.SendAsync(httpRequest);
+        return await DeserializeResponseAsync<JsonElement>(httpResponse);
+    }
+
+    /// <summary>
+    /// Support csatolmány letöltése.
+    /// Sikeres hívásnál visszaadja a fájl tartalmát, nevét és média típusát.
+    /// </summary>
+    public async Task<DimKonzolSupportAttachmentDownloadResult> DownloadSupportAttachmentAsync(int id)
+    {
+        await EnsureTenantContextAsync();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"api/v1/support/attachments/{id}/download");
+        SetAuthenticationHeader(request, ApiAuthenticationMode.TenantContext);
+
+        using var httpResponse = await _httpClient.SendAsync(request);
+
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            var apiError = await DeserializeResponseAsync<JsonElement>(httpResponse);
+            var message = apiError?.Message ?? $"A csatolmány letöltése sikertelen (HTTP {(int)httpResponse.StatusCode}).";
+            throw new InvalidOperationException(message);
+        }
+
+        var content = await httpResponse.Content.ReadAsByteArrayAsync();
+        var mediaType = httpResponse.Content.Headers.ContentType?.MediaType;
+        var fileName = httpResponse.Content.Headers.ContentDisposition?.FileNameStar
+                       ?? httpResponse.Content.Headers.ContentDisposition?.FileName;
+
+        if (!string.IsNullOrWhiteSpace(fileName))
+            fileName = fileName.Trim('"');
+
+        return new DimKonzolSupportAttachmentDownloadResult
+        {
+            FileName = fileName,
+            MediaType = mediaType,
+            Content = content
+        };
+    }
+
+    // ============================================================
     // OpenAI Proxy (JWT vagy X-Device-Token, kivéve ahol külön jelezve)
     // ============================================================
 

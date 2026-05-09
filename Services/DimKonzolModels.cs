@@ -482,6 +482,64 @@ public class CegjelzoRecentQuery
 }
 
 // ============================================================
+// Support API modellek
+// ============================================================
+
+public class DimKonzolSupportItemCreateRequest
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("priority")]
+    public string? Priority { get; set; }
+
+    [JsonPropertyName("is_public")]
+    public bool? IsPublic { get; set; }
+
+    [JsonPropertyName("allow_public_comments")]
+    public bool? AllowPublicComments { get; set; }
+
+    [JsonPropertyName("contact_name")]
+    public string? ContactName { get; set; }
+
+    [JsonPropertyName("contact_email")]
+    public string? ContactEmail { get; set; }
+
+    [JsonPropertyName("client_version")]
+    public string? ClientVersion { get; set; }
+
+    [JsonPropertyName("operating_system")]
+    public string? OperatingSystem { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public object? Metadata { get; set; }
+}
+
+public class DimKonzolSupportMessageCreateRequest
+{
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public object? Metadata { get; set; }
+}
+
+public class DimKonzolSupportAttachmentDownloadResult
+{
+    public string? FileName { get; set; }
+
+    public string? MediaType { get; set; }
+
+    public byte[] Content { get; set; } = [];
+}
+
+// ============================================================
 // Events
 // ============================================================
 
